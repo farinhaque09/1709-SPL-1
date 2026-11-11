@@ -7,6 +7,7 @@ struct SalesRecord {
     std::string date;
     double sales = 0.0;
     double stock = 0.0;
+    bool hasStock = true;
 };
 
 std::vector<SalesRecord> loadSalesCSV(const std::string& path);

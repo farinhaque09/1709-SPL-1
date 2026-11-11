@@ -40,6 +40,7 @@ std::vector<SalesRecord> loadSalesCSV(const std::string& path) {
     std::string line;
 
     bool isHeader = true;
+    int expectedFields = 0;
     int lineNumber = 0;
     int skippedRows = 0;
 
@@ -56,23 +57,28 @@ std::vector<SalesRecord> loadSalesCSV(const std::string& path) {
 
         if (isHeader) {
             isHeader = false;
+            expectedFields = static_cast<int>(splitLine(line).size());
+            if (expectedFields != 2 && expectedFields != 3) {
+                throw std::runtime_error("CSV header must be date,sales or date,sales,stock");
+            }
             continue;
         }
 
         std::vector<std::string> fields = splitLine(line);
-        if (fields.size() != 3) {
+        if (static_cast<int>(fields.size()) != expectedFields) {
             std::cerr << "[warn] line " << lineNumber
-                      << " does not have 3 fields, skipping: " << line << "\n";
+                      << " does not have " << expectedFields << " fields, skipping: " << line << "\n";
             skippedRows++;
             continue;
         }
 
         SalesRecord record;
         record.date = fields[0];
+        record.hasStock = (expectedFields == 3);
 
         double sales = 0.0, stock = 0.0;
         bool salesOk = tryParseDouble(fields[1], sales);
-        bool stockOk = tryParseDouble(fields[2], stock);
+        bool stockOk = record.hasStock ? tryParseDouble(fields[2], stock) : true;
 
         if (!salesOk || !stockOk) {
             std::cerr << "[warn] line " << lineNumber
@@ -105,9 +111,10 @@ int cleanSalesRecords(std::vector<SalesRecord>& records) {
 
     for (const SalesRecord& r : records) {
         bool salesFinite = std::isfinite(r.sales);
-        bool stockFinite = std::isfinite(r.stock);
+        bool stockFinite = !r.hasStock || std::isfinite(r.stock);
+        bool stockNegative = r.hasStock && r.stock < 0.0;
 
-        if (!salesFinite || !stockFinite || r.sales < 0.0 || r.stock < 0.0) {
+        if (!salesFinite || !stockFinite || r.sales < 0.0 || stockNegative) {
             dropped++;
             continue;
         }
